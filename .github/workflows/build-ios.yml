@@ -1,0 +1,67 @@
+
+name: Himsiq iOS Build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'hamsiq-1.2.3-cloud-ios-build.zip'
+      - '.github/workflows/build-ios.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract Flutter source
+        run: |
+          mkdir -p source
+          unzip -q hamsiq-1.2.3-cloud-ios-build.zip -d source
+          PROJECT_DIR="$(find "$GITHUB_WORKSPACE/source" -name pubspec.yaml -print -quit | xargs dirname)"
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Flutter project not found"
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Get dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter pub get
+
+      - name: Generate iOS project
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter create --platforms=ios --org com.hamsiq.app --project-name hamsiq .
+
+      - name: Install CocoaPods
+        working-directory: ${{ env.PROJECT_DIR }}/ios
+        run: pod install
+
+      - name: Build unsigned iOS app
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter build ios --release --no-codesign
+
+      - name: Package IPA
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/Himsiq.app
+          zip -qr Himsiq-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Himsiq-iOS-unsigned-IPA
+          path: ${{ env.PROJECT_DIR }}/Himsiq-unsigned.ipa
+          retention-days: 14
