@@ -43,10 +43,7 @@ jobs:
       - name: Generate iOS project
         working-directory: ${{ env.PROJECT_DIR }}
         run: flutter create --platforms=ios --org com.hamsiq.app --project-name hamsiq .
-
-      - name: Install CocoaPods
-        working-directory: ${{ env.PROJECT_DIR }}/ios
-        run: pod install
+        
 
       - name: Build unsigned iOS app
         working-directory: ${{ env.PROJECT_DIR }}
